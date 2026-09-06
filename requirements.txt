@@ -1,5 +1,5 @@
 langgraph
-langchain-anthropic
+langchain-groq
 yfinance
 python-dotenv
 fastapi

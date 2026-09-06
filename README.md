@@ -11,7 +11,7 @@ Runs as a CLI script or a FastAPI service, deployable on Render.
 
 ```
         ┌────────────┐
-        │   agent    │  Claude decides: answer now, or call a tool?
+        │   agent    │  The LLM decides: answer now, or call a tool?
         └─────┬──────┘
               │
        tool call needed?
@@ -30,10 +30,10 @@ Runs as a CLI script or a FastAPI service, deployable on Render.
   LangGraph's `add_messages` reducer.
 - **Tools**: `get_stock_price`, `screen_stocks`, `get_price_history` — plain
   Python functions decorated with `@tool`, backed by `yfinance`.
-- **Graph**: `agent` node calls Claude with tools bound
+- **Graph**: `agent` node calls the LLM (Llama 3.3 70B via Groq) with tools bound
   (`llm.bind_tools()`). `tools_condition` routes to the prebuilt `ToolNode`
-  if Claude requested a tool call, otherwise straight to `END`. Tool
-  results loop back into `agent` so Claude can chain multiple calls
+  if the LLM requested a tool call, otherwise straight to `END`. Tool
+  results loop back into `agent` so it can chain multiple calls
   (e.g. screen a list, then pull history on the winners) before answering.
 
 ## Project structure
@@ -51,7 +51,7 @@ Runs as a CLI script or a FastAPI service, deployable on Render.
 
 ```bash
 pip install -r requirements.txt
-cp .env.example .env   # paste your real ANTHROPIC_API_KEY into .env
+cp .env.example .env   # paste your real GROQ_API_KEY into .env
 ```
 
 **As a CLI:**
@@ -79,7 +79,7 @@ so you can see the reasoning, not just the output.
 1. Push this repo to GitHub (done).
 2. On [render.com](https://render.com), **New → Web Service** → connect
    this repo. Render will pick up `render.yaml` automatically.
-3. Add the `ANTHROPIC_API_KEY` environment variable in the Render
+3. Add the `GROQ_API_KEY` environment variable in the Render
    dashboard (it's marked `sync: false` in `render.yaml` so it's never
    read from the repo).
 4. Deploy. First request after idle will cold-start (~30-50s on the free
@@ -111,6 +111,7 @@ Response:
 - `yfinance` hits Yahoo's unofficial, unauthenticated endpoint — it
   throttles under heavy/repeated calls. If you see empty results or
   errors under load, that's rate-limiting, not a bug in the graph.
-- Swapping LLM providers: install `langchain-openai`, replace the `llm =`
-  line in `agent.py` with `ChatOpenAI(...)`. Nothing else changes — that's
-  the point of LangGraph's tool-binding abstraction.
+- Swapping LLM providers: install the relevant `langchain-*` package,
+  replace the `llm =` line in `agent.py` (e.g. `ChatAnthropic(...)` or
+  `ChatOpenAI(...)`), and set the matching API key env var. Nothing else
+  changes — that's the point of LangGraph's tool-binding abstraction.

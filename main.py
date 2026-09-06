@@ -51,8 +51,8 @@ def health():
 
 @app.post("/screen", response_model=ScreenResponse)
 def screen(req: ScreenRequest):
-    if not os.getenv("ANTHROPIC_API_KEY"):
-        raise HTTPException(500, "ANTHROPIC_API_KEY not configured on server")
+    if not os.getenv("GROQ_API_KEY"):
+        raise HTTPException(500, "GROQ_API_KEY not configured on server")
 
     state = {"messages": [HumanMessage(content=req.query)]}
     result = graph.invoke(state)

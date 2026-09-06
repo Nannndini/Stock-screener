@@ -12,7 +12,7 @@ from typing import Annotated, TypedDict
 
 import yfinance as yf
 from dotenv import load_dotenv
-from langchain_anthropic import ChatAnthropic
+from langchain_groq import ChatGroq
 from langchain_core.messages import AnyMessage
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, START, END
@@ -93,7 +93,7 @@ class AgentState(TypedDict):
 
 # ---------- LLM + graph ----------
 
-llm = ChatAnthropic(model="claude-sonnet-4-5-20250929", temperature=0)
+llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0)
 llm_with_tools = llm.bind_tools(TOOLS)
 
 SYSTEM_PROMPT = (
