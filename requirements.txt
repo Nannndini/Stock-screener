@@ -2,3 +2,5 @@ langgraph
 langchain-anthropic
 yfinance
 python-dotenv
+fastapi
+uvicorn[standard]

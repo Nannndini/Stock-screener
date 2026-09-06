@@ -1,43 +1,116 @@
-# Stock Screener Agent (LangGraph)
+# Stock Screener Agent
 
-## Setup
-```bash
-pip install -r requirements.txt
-cp .env.example .env   # then paste your real ANTHROPIC_API_KEY into .env
+An AI agent built with **LangGraph** that screens stocks against live market
+data. You give it a natural-language query — a ticker, a sector theme, a
+P/E cutoff — and it decides which tools to call, pulls real data from
+Yahoo Finance via `yfinance`, and reasons over the results before answering.
+
+Runs as a CLI script or a FastAPI service, deployable on Render.
+
+## How it works
+
+```
+        ┌────────────┐
+        │   agent    │  Claude decides: answer now, or call a tool?
+        └─────┬──────┘
+              │
+       tool call needed?
+         │           │
+        yes          no
+         │           │
+   ┌─────▼─────┐     │
+   │   tools   │     │
+   │ (yfinance)│     │
+   └─────┬─────┘     │
+         │            │
+         └──────► back to agent ──► END (final answer)
 ```
 
-## Run
+- **State** (`agent.py`): a running `messages` list, auto-appended via
+  LangGraph's `add_messages` reducer.
+- **Tools**: `get_stock_price`, `screen_stocks`, `get_price_history` — plain
+  Python functions decorated with `@tool`, backed by `yfinance`.
+- **Graph**: `agent` node calls Claude with tools bound
+  (`llm.bind_tools()`). `tools_condition` routes to the prebuilt `ToolNode`
+  if Claude requested a tool call, otherwise straight to `END`. Tool
+  results loop back into `agent` so Claude can chain multiple calls
+  (e.g. screen a list, then pull history on the winners) before answering.
+
+## Project structure
+
+```
+.
+├── agent.py         # LangGraph agent: state, tools, graph definition
+├── main.py          # FastAPI wrapper exposing POST /screen
+├── requirements.txt
+├── render.yaml       # Render deploy config
+└── .env.example
+```
+
+## Run locally
+
+```bash
+pip install -r requirements.txt
+cp .env.example .env   # paste your real ANTHROPIC_API_KEY into .env
+```
+
+**As a CLI:**
 ```bash
 python agent.py "Find undervalued tech stocks with P/E under 20"
 ```
-or with defaults:
+
+**As an API:**
 ```bash
-python agent.py
+uvicorn main:app --reload
+```
+Then:
+```bash
+curl -X POST http://localhost:8000/screen \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Screen AAPL, MSFT, GOOGL, NVDA, INTC for P/E under 30"}'
 ```
 
-## How it's wired
-- **State**: `AgentState` holds a running `messages` list (auto-appended via
-  `add_messages`).
-- **Tools** (`get_stock_price`, `screen_stocks`, `get_price_history`): plain
-  Python functions wrapped with `@tool`, backed by `yfinance`.
-- **agent node**: calls Claude with the tools bound; Claude decides whether
-  to call a tool or answer directly.
-- **tools_condition / ToolNode**: LangGraph's prebuilt routing — if the last
-  message has tool calls, go to `tools`; otherwise `END`.
-- **Loop**: `tools -> agent` so results feed back in until Claude is
-  satisfied and returns a plain answer.
+Response includes the final answer **and** a trace of every tool call
+the agent made — what it called, with what arguments, and what came back —
+so you can see the reasoning, not just the output.
 
-## Swap the LLM
-Using OpenAI instead? `pip install langchain-openai`, then in `agent.py`:
-```python
-from langchain_openai import ChatOpenAI
-llm = ChatOpenAI(model="gpt-4o", temperature=0)
+## Deploy on Render
+
+1. Push this repo to GitHub (done).
+2. On [render.com](https://render.com), **New → Web Service** → connect
+   this repo. Render will pick up `render.yaml` automatically.
+3. Add the `ANTHROPIC_API_KEY` environment variable in the Render
+   dashboard (it's marked `sync: false` in `render.yaml` so it's never
+   read from the repo).
+4. Deploy. First request after idle will cold-start (~30-50s on the free
+   tier) — expected, not a bug.
+
+## API reference
+
+`POST /screen`
+
+Request:
+```json
+{ "query": "string" }
 ```
-Everything else (tools, graph, routing) stays the same — that's the point
-of LangGraph's tool-binding abstraction.
 
-## Extend it
-- Add a `rank_stocks` tool that sorts screened results by a metric.
-- Add a Streamlit/Gradio front end that calls `graph.invoke()`.
-- Swap `yfinance` for a paid data API if you hit rate limits (Yahoo's
-  unofficial endpoint throttles hard under load).
+Response:
+```json
+{
+  "answer": "string",
+  "tool_calls": [
+    { "tool": "string", "input": {}, "output": {} }
+  ]
+}
+```
+
+`GET /` — health check.
+
+## Notes
+
+- `yfinance` hits Yahoo's unofficial, unauthenticated endpoint — it
+  throttles under heavy/repeated calls. If you see empty results or
+  errors under load, that's rate-limiting, not a bug in the graph.
+- Swapping LLM providers: install `langchain-openai`, replace the `llm =`
+  line in `agent.py` with `ChatOpenAI(...)`. Nothing else changes — that's
+  the point of LangGraph's tool-binding abstraction.
