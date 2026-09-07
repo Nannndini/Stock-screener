@@ -104,7 +104,7 @@ class AgentState(TypedDict):
 # ---------- LLM + graph ----------
 
 print("STARTUP: creating ChatGroq client...", flush=True)
-llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0)
+llm = ChatGroq(model="openai/gpt-oss-120b", temperature=0)
 print("STARTUP: ChatGroq client created, binding tools...", flush=True)
 llm_with_tools = llm.bind_tools(TOOLS)
 print("STARTUP: tools bound", flush=True)
