@@ -8,18 +8,28 @@ Set ANTHROPIC_API_KEY in your environment (or a .env file) before running.
 """
 
 import os
+import sys
 from typing import Annotated, TypedDict
 
+print("STARTUP: importing yfinance...", flush=True)
 import yfinance as yf
+print("STARTUP: yfinance imported", flush=True)
+
 from dotenv import load_dotenv
+print("STARTUP: importing langchain_groq...", flush=True)
 from langchain_groq import ChatGroq
+print("STARTUP: langchain_groq imported", flush=True)
+
 from langchain_core.messages import AnyMessage
 from langchain_core.tools import tool
+print("STARTUP: importing langgraph...", flush=True)
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
+print("STARTUP: langgraph imported", flush=True)
 
 load_dotenv()
+print(f"STARTUP: GROQ_API_KEY present: {bool(os.getenv('GROQ_API_KEY'))}", flush=True)
 
 
 # ---------- Tools ----------
@@ -93,8 +103,11 @@ class AgentState(TypedDict):
 
 # ---------- LLM + graph ----------
 
+print("STARTUP: creating ChatGroq client...", flush=True)
 llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0)
+print("STARTUP: ChatGroq client created, binding tools...", flush=True)
 llm_with_tools = llm.bind_tools(TOOLS)
+print("STARTUP: tools bound", flush=True)
 
 SYSTEM_PROMPT = (
     "You are a stock screener agent. You have tools to fetch live prices, "
@@ -124,6 +137,7 @@ graph_builder.add_conditional_edges("agent", tools_condition)
 graph_builder.add_edge("tools", "agent")
 
 graph = graph_builder.compile()
+print("STARTUP: graph compiled — agent.py fully loaded", flush=True)
 
 
 # ---------- Runner ----------
